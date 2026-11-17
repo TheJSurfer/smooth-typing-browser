@@ -1,0 +1,101 @@
+// ==UserScript==
+// @name         Smooth Caret Typing Animation  
+// @namespace    http://tampermonkey.net/
+// @version      1.1
+// @description  Adds a smooth, gliding caret animation to input and textarea fields
+// @author       Nahiyan Islam Joy
+// @match        *://*/*
+// @grant        none
+// @license     GPL-3.0-or-later
+// ==/UserScript==
+ 
+(function() {
+    'use strict';
+ 
+    const caret = document.createElement('div');
+    caret.id = 'smooth-caret';
+    Object.assign(caret.style, {
+        position: 'fixed', // Changed to fixed to avoid relative container issues
+        width: '2px',
+        height: '20px',
+        backgroundColor: 'black',
+        transition: 'all 0.1s ease-out',
+        pointerEvents: 'none',
+        zIndex: '2147483647', // Maximum possible z-index
+        display: 'none',
+        borderRadius: '1px'
+    });
+    document.body.appendChild(caret);
+ 
+    let activeElement = null;
+ 
+    function updateCaret() {
+        if (!activeElement) return;
+ 
+        const el = activeElement;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+ 
+        // Create mirror to measure text width
+        const mirror = document.createElement('div');
+        Object.assign(mirror.style, {
+            position: 'absolute',
+            visibility: 'hidden',
+            whiteSpace: 'pre',
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            letterSpacing: style.letterSpacing,
+            padding: style.padding,
+            border: style.border,
+            boxSizing: 'border-box',
+            left: '-9999px',
+            top: '0'
+        });
+ 
+        const textBeforeCaret = el.value.substring(0, el.selectionStart);
+        mirror.textContent = textBeforeCaret;
+        document.body.appendChild(mirror);
+ 
+        const mirrorRect = mirror.getBoundingClientRect();
+        document.body.removeChild(mirror);
+ 
+        // Calculate final position relative to the viewport
+        const x = rect.left + mirrorRect.width;
+        const y = rect.top + (rect.height / 2) - 10;
+ 
+        caret.style.display = 'block';
+        caret.style.backgroundColor = style.color;
+        caret.style.left = `${x}px`;
+        caret.style.top = `${y}px`;
+    }
+ 
+    document.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            activeElement = e.target;
+            activeElement.style.caretColor = 'transparent';
+            updateCaret();
+        }
+    });
+ 
+    document.addEventListener('focusout', (e) => {
+        if (activeElement === e.target) {
+            activeElement.style.caretColor = '';
+            activeElement = null;
+            caret.style.display = 'none';
+        }
+    });
+ 
+    // Use a small interval to keep the caret synced during holding keys down
+    setInterval(() => {
+        if (activeElement && document.activeElement === activeElement) {
+            updateCaret();
+        }
+    }, 50);
+ 
+    document.addEventListener('input', updateCaret);
+    document.addEventListener('keyup', updateCaret);
+    document.addEventListener('click', updateCaret);
+    window.addEventListener('resize', updateCaret);
+    window.addEventListener('scroll', updateCaret);
+})();
